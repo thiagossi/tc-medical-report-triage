@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.env
+.vscode/
+.idea/
+
+# training artifacts
+models/*
+!models/.gitkeep
+
+# raw dataset (downloaded from Kaggle, see README)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/
