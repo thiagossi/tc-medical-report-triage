@@ -7,7 +7,6 @@ URGENCY_MAP = {
     "Internal pain": "urgente",
     "Open wound": "urgente",
     "Infected wound": "urgente",
-
     # atencao: merece consulta logo, mas não é emergência
     "Feeling dizzy": "atencao",
     "Blurry vision": "atencao",
@@ -19,7 +18,6 @@ URGENCY_MAP = {
     "Ear ache": "atencao",
     "Injury from sports": "atencao",
     "Emotional pain": "atencao",
-
     # normal: queixa leve ou crônica, consulta de rotina
     "Back pain": "normal",
     "Neck pain": "normal",
