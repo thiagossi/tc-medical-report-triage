@@ -30,3 +30,5 @@ URGENCY_MAP = {
     "Acne": "normal",
     "Hair falling out": "normal",
 }
+
+LEVELS = ["normal", "atencao", "urgente"]

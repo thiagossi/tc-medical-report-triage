@@ -2,16 +2,32 @@
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline
 
-from triage.config import MAX_DEPTH, MIN_DF, N_ESTIMATORS, NGRAM_RANGE, SEED
+from triage.config import (
+    CHAR_NGRAM_RANGE,
+    MAX_DEPTH,
+    MIN_DF,
+    N_ESTIMATORS,
+    NGRAM_RANGE,
+    SEED,
+)
 
 
 def build_pipeline() -> Pipeline:
-    """Cria o pipeline TF-IDF + Random Forest (ainda não treinado)."""
+    """Cria o pipeline TF-IDF (palavras + letras) + Random Forest (ainda não treinado)."""
+    features = FeatureUnion(
+        [
+            ("words", TfidfVectorizer(ngram_range=NGRAM_RANGE, min_df=MIN_DF)),
+            (
+                "chars",
+                TfidfVectorizer(analyzer="char", ngram_range=CHAR_NGRAM_RANGE, min_df=MIN_DF),
+            ),
+        ]
+    )
     return Pipeline(
         [
-            ("tfidf", TfidfVectorizer(ngram_range=NGRAM_RANGE, min_df=MIN_DF)),
+            ("features", features),
             (
                 "clf",
                 RandomForestClassifier(
