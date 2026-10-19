@@ -1,0 +1,6 @@
+# Airflow com as mesmas versões de bibliotecas da API.
+# O modelo salvo pelo Airflow precisa ser lido pela API, então o scikit-learn
+# e o joblib têm que ser iguais aos do poetry.lock.
+FROM apache/airflow:3.3.2-python3.11
+
+RUN pip install --no-cache-dir "scikit-learn==1.9.1" "joblib==1.6.0"

@@ -1,0 +1,29 @@
+# Airflow em modo "standalone" (um container só, banco SQLite): ideal para rodar a
+# DAG de retreino localmente. Em produção usaríamos o MWAA (ver README).
+#
+#   docker compose -f docker-compose.airflow.yml up --build -d
+#   abrir http://localhost:8080
+services:
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    image: tc-triage-airflow
+    container_name: triage-airflow
+    command: standalone
+    user: "${AIRFLOW_UID:-50000}:0"
+    ports:
+      - "8080:8080"
+    environment:
+      # O código do projeto é importado pela DAG (from triage...).
+      PYTHONPATH: /opt/airflow/src
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      # Ambiente local de estudo: todos entram como admin, sem senha.
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src:ro
+      - ./data:/opt/airflow/data
+      # Mesma pasta que a API lê: o modelo aprovado pela DAG já fica disponível.
+      - ./models:/opt/airflow/models

@@ -22,3 +22,7 @@ MAX_DEPTH = None
 
 # Decisão: na dúvida, prioriza urgente
 URGENT_THRESHOLD = 0.25
+
+# Qualidade mínima (usada na validação e na barreira de qualidade da DAG)
+MIN_ROWS = 2000
+MIN_RECALL_URGENTE = 0.70
