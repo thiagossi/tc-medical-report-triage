@@ -1,0 +1,104 @@
+# Pipeline de integração contínua: lint → testes → build da imagem Docker.
+# Roda em todo push e em todo Pull Request para a main.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  POETRY_VERSION: "2.4.1"
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install "poetry==${POETRY_VERSION}"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+      - run: poetry install --no-interaction
+      - name: Verifica erros e estilo
+        run: poetry run ruff check .
+      - name: Verifica formatação
+        run: poetry run ruff format --check .
+
+  test:
+    name: Testes (pytest)
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install "poetry==${POETRY_VERSION}"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+      - run: poetry install --no-interaction
+      - name: Roda os testes com cobertura
+        run: poetry run pytest --cov=triage --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  build:
+    name: Build da imagem + teste de fumaça
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install "poetry==${POETRY_VERSION}"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+      - run: poetry install --no-interaction --only main
+
+      - name: Build da imagem Docker
+        run: docker build -t tc-triage-api:ci .
+
+      # O dataset real não fica no repositório, então treinamos um modelo pequeno
+      # com o CSV de teste só para conferir que a imagem sobe e responde.
+      - name: Treina um modelo pequeno para o teste
+        run: |
+          poetry run python - <<'PY'
+          from pathlib import Path
+
+          from triage.data import clean_dataset, load_dataset, split_dataset
+          from triage.train import evaluate_model, save_model, train_model
+
+          df = clean_dataset(load_dataset("tests/fixtures/sample.csv"))
+          train_df, test_df = split_dataset(df)
+          model = train_model(train_df)
+          save_model(model, evaluate_model(model, test_df), len(train_df), Path("models"))
+          PY
+
+      - name: Sobe o container e testa /health e /predict
+        run: |
+          docker run -d --name api -p 8000:8000 -v "$PWD/models:/app/models:ro" tc-triage-api:ci
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break
+            sleep 1
+          done
+          curl -sf http://localhost:8000/health
+          curl -sf -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"text": "My chest hurts and I cannot breathe"}'
+
+      - name: Logs do container (se algo falhar)
+        if: failure()
+        run: docker logs api
