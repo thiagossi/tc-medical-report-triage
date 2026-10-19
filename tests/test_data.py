@@ -1,8 +1,9 @@
 """Testes de carregamento, limpeza e separação dos dados."""
 
 import pandas as pd
+import pytest
 
-from triage.data import clean_dataset, phrase_key, split_dataset
+from triage.data import clean_dataset, phrase_key, split_dataset, validate_dataset
 
 
 def test_every_row_gets_an_urgency_level(sample_df):
@@ -29,3 +30,19 @@ def test_same_phrase_never_in_train_and_test(sample_df):
 def test_split_keeps_all_levels_in_test(sample_df):
     _, test_df = split_dataset(sample_df)
     assert set(test_df["urgency"]) == {"normal", "atencao", "urgente"}
+
+
+def test_validate_accepts_good_data(sample_df):
+    validate_dataset(sample_df, min_rows=100)
+
+
+def test_validate_rejects_category_without_level(sample_df):
+    df = sample_df.copy()
+    df.loc[0, "urgency"] = None
+    with pytest.raises(ValueError, match="sem nível"):
+        validate_dataset(df, min_rows=100)
+
+
+def test_validate_rejects_too_few_rows(sample_df):
+    with pytest.raises(ValueError, match="mínimo"):
+        validate_dataset(sample_df, min_rows=10_000)
