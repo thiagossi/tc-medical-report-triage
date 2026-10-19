@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, recall_s
 from sklearn.pipeline import Pipeline
 
 from triage.config import DATA_PATH, MODEL_DIR, MODEL_VERSION, SEED, URGENT_THRESHOLD
-from triage.data import clean_dataset, load_dataset, split_dataset
+from triage.data import clean_dataset, load_dataset, split_dataset, validate_dataset
 from triage.labels import LEVELS
 from triage.model import build_pipeline
 from triage.predict import predict_labels
@@ -60,6 +60,7 @@ def save_model(model: Pipeline, metrics: dict, n_train: int, model_dir: Path = M
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     df = clean_dataset(load_dataset(DATA_PATH))
+    validate_dataset(df)
     train_df, test_df = split_dataset(df)
     model = train_model(train_df)
     logger.info("Modelo treinado com %d frases", len(train_df))

@@ -1,8 +1,10 @@
 import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
-from triage.config import SEED, TEST_SIZE
-from triage.labels import URGENCY_MAP
+from triage.config import MIN_ROWS, SEED, TEST_SIZE
+from triage.labels import LEVELS, URGENCY_MAP
+
+REQUIRED_COLUMNS = ["phrase", "prompt", "urgency"]
 
 
 def load_dataset(csv_path: str) -> pd.DataFrame:
@@ -10,6 +12,24 @@ def load_dataset(csv_path: str) -> pd.DataFrame:
     df = df[["phrase", "prompt"]]
     df["urgency"] = df["prompt"].map(URGENCY_MAP)
     return df
+
+
+def validate_dataset(df: pd.DataFrame, min_rows: int = MIN_ROWS) -> None:
+    """Para o processo com um erro claro se os dados não servirem para treinar."""
+    missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    if missing:
+        raise ValueError(f"Colunas faltando no dataset: {missing}")
+
+    unmapped = sorted(df.loc[df["urgency"].isna(), "prompt"].unique())
+    if unmapped:
+        raise ValueError(f"Categorias sem nível de urgência no labels.py: {unmapped}")
+
+    if len(df) < min_rows:
+        raise ValueError(f"Dataset com {len(df)} linhas; o mínimo é {min_rows}")
+
+    missing_levels = sorted(set(LEVELS) - set(df["urgency"]))
+    if missing_levels:
+        raise ValueError(f"Níveis sem nenhum exemplo: {missing_levels}")
 
 
 def phrase_key(df: pd.DataFrame) -> pd.Series:
