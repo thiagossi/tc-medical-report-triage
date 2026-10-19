@@ -178,16 +178,22 @@ poetry run ruff check . && poetry run ruff format --check .
 Com a API no ar:
 
 ```bash
-poetry run python scripts/benchmark_latency.py --label baseline
+poetry run python scripts/benchmark_latency.py --label baseline --n 1000
 ```
 
-O script faz 20 requisições de aquecimento, mede outras 500 e salva o resultado em
+O script faz 20 requisições de aquecimento, mede as seguintes e salva o resultado em
 `docs/results/latency_baseline.json`.
 
-| Versão | p50 | p95 | p99 |
-|---|---|---|---|
-| Baseline (sklearn, Docker local) | _a medir_ | _a medir_ | _a medir_ |
-| Otimizado (ONNX), Etapa 4 | _a medir_ | _a medir_ | _a medir_ |
+**Baseline**: API com o modelo sklearn rodando no Docker. Foram 1.000 requisições em
+sequência, numa máquina Linux com 4 vCPUs (Intel Xeon 2,8 GHz). O resultado está em
+[`docs/results/latency_baseline.json`](docs/results/latency_baseline.json).
+
+| Versão | média | p50 | p95 | p99 |
+|---|---|---|---|---|
+| Baseline (sklearn, Docker) | 14.0 ms | 12.7 ms | 18.9 ms | 22.1 ms |
+| Otimizado (ONNX), Etapa 4 | _a medir_ | _a medir_ | _a medir_ | _a medir_ |
+
+A latência inclui a viagem HTTP de ida e volta, a validação do Pydantic e a predição.
 
 ## 7. Estrutura do projeto
 
