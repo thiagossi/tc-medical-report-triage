@@ -1,0 +1,23 @@
+# Só entra na imagem o que a API precisa (pyproject, lock, README e src/).
+.git
+.github
+.venv
+.vscode
+.idea
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+data
+models
+tests
+scripts
+dags
+monitoring
+docs
+*.md
+!README.md
+Dockerfile
+docker-compose*.yml
