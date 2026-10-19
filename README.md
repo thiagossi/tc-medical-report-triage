@@ -7,6 +7,8 @@ Prometheus + Grafana.
 
 > Documento em construção: cada etapa do desafio completa este README.
 
+![CI](https://github.com/thiagossi/tc-medical-report-triage/actions/workflows/ci.yml/badge.svg)
+
 ---
 
 ## 1. Problema
@@ -141,7 +143,55 @@ Paciente/recepção ──► Application Load Balancer ──► ECS Fargate (A
 | **EC2** | exige gerenciar o servidor (atualizações, escalonamento, falhas) |
 | **EventBridge + Step Functions** no lugar do MWAA | opção serverless e mais barata para o retreino; como o projeto já usa Airflow, o MWAA reaproveita a mesma DAG sem reescrever nada |
 
-## 6. Como rodar
+## 6. CI/CD (GitHub Actions)
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em **todo push** e
+em **todo Pull Request para a `main`**. São 3 jobs em sequência, e cada um só começa se o
+anterior passar:
+
+| Job | O que faz |
+|---|---|
+| **1. Lint** | `ruff check` (erros e boas práticas) e `ruff format --check` (formatação) |
+| **2. Testes** | `pytest` com cobertura; o relatório `coverage.xml` fica salvo como artefato |
+| **3. Build** | constrói a imagem Docker, treina um modelo pequeno com o CSV de teste, sobe o container e chama `/health` e `/predict` (teste de fumaça) |
+
+Os testes não dependem do dataset real: usam `tests/fixtures/sample.csv`, com 200 frases
+sintéticas que cobrem as 25 categorias.
+
+## 7. Retreino com Airflow
+
+A DAG [`dags/train_pipeline.py`](dags/train_pipeline.py) automatiza o treino. Ela roda
+toda semana (`@weekly`) e pode ser disparada pelo botão **Trigger**:
+
+```
+load_data → validate_data → train → evaluate → save
+```
+
+| Task | O que faz |
+|---|---|
+| `load_data` | lê o CSV e remove os rótulos inconsistentes |
+| `validate_data` | confere colunas, categorias sem nível e o mínimo de 2.000 linhas, e separa treino e teste por frase |
+| `train` | treina o pipeline TF-IDF + Random Forest |
+| `evaluate` | **barreira de qualidade**: se o recall de urgente ficar abaixo de 0,70 (`MIN_RECALL_URGENTE`), a DAG falha e o modelo **não** é salvo |
+| `save` | grava `model.joblib` + `metadata.json` em `models/`, a mesma pasta que a API lê |
+
+As tasks só chamam funções de `src/triage/` (nenhuma lógica duplicada) e passam entre si
+**caminhos de arquivo**, não DataFrames.
+
+O Airflow roda separado da API (`docker-compose.airflow.yml`), em modo *standalone*, com as
+mesmas versões de scikit-learn e joblib do `poetry.lock`. Isso garante que o modelo salvo
+pela DAG abre na API sem incompatibilidade.
+
+```bash
+docker compose -f docker-compose.airflow.yml up --build -d
+# abrir http://localhost:8080 → DAG "train_pipeline" → Trigger
+```
+
+Execução da DAG (todas as tasks em verde, em duas execuções):
+
+![DAG train_pipeline no Airflow](docs/images/airflow_dag.png)
+
+## 8. Como rodar
 
 Pré-requisitos: Python 3.11, [Poetry](https://python-poetry.org/) e Docker.
 
@@ -195,7 +245,7 @@ sequência, numa máquina Linux com 4 vCPUs (Intel Xeon 2,8 GHz). O resultado es
 
 A latência inclui a viagem HTTP de ida e volta, a validação do Pydantic e a predição.
 
-## 7. Estrutura do projeto
+## 9. Estrutura do projeto
 
 ```
 src/triage/
@@ -206,13 +256,15 @@ src/triage/
 ├── train.py         # treina, avalia e salva o modelo
 ├── predict.py       # carrega o modelo e aplica a regra de decisão
 └── api/             # FastAPI: main.py (rotas) e schemas.py (Pydantic)
+dags/                # DAG de retreino do Airflow
 tests/               # pytest + fixtures/sample.csv
 scripts/             # benchmark de latência
+.github/workflows/   # CI: lint → testes → build
 models/              # modelo treinado (fora do git)
 data/raw/            # dataset (fora do git)
 ```
 
-## 8. Limitações
+## 10. Limitações
 
 - Os níveis de urgência vêm de uma regra criada para o projeto, **sem validação clínica**.
 - São só 703 frases únicas, curtas e em inglês.
