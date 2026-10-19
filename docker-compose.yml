@@ -1,0 +1,12 @@
+# Sobe a API de triagem.
+services:
+  api:
+    build: .
+    image: tc-triage-api
+    container_name: triage-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Modelo gerado pelo treino (ou pelo Airflow), só leitura para a API.
+      - ./models:/app/models:ro
+    restart: unless-stopped

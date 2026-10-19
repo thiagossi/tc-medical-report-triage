@@ -1,0 +1,10 @@
+# Guarda os arquivos de texto com fim de linha LF (padrão Linux).
+# Sem isso, arquivos editados no Windows (CRLF) podem quebrar scripts
+# dentro do Docker e no GitHub Actions.
+* text=auto eol=lf
+
+# Arquivos binários: o git não deve mexer neles.
+*.joblib binary
+*.onnx binary
+*.png binary
+*.jpg binary
