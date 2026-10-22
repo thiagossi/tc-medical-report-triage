@@ -6,6 +6,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Response, status
 
+from triage.api.metrics import (
+    MODEL_INFO,
+    PREDICTIONS,
+    metrics_endpoint,
+    metrics_middleware,
+)
 from triage.api.schemas import PredictRequest, PredictResponse
 from triage.config import MODEL_DIR
 from triage.predict import load_model, predict_text
@@ -23,6 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         state["model"], state["metadata"] = load_model()
         logger.info("Modelo %s carregado de %s", state["metadata"]["version"], MODEL_DIR)
+        MODEL_INFO.labels(state["metadata"]["version"]).set(1)
     except FileNotFoundError:
         logger.error("Modelo não encontrado em %s. Rode o treino antes.", MODEL_DIR)
     yield
@@ -30,6 +37,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Triagem de relatos médicos", version="1.0.0", lifespan=lifespan)
+app.middleware("http")(metrics_middleware)
+app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False)
 
 
 @app.get("/health")
@@ -50,4 +59,5 @@ def predict(request: PredictRequest) -> PredictResponse:
     if "model" not in state:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Modelo não carregado")
     result = predict_text(state["model"], request.text)
+    PREDICTIONS.labels(result["label"]).inc()
     return PredictResponse(**result, model_version=state["metadata"]["version"])
