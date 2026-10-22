@@ -191,7 +191,46 @@ Execução da DAG (todas as tasks em verde, em duas execuções):
 
 ![DAG train_pipeline no Airflow](docs/images/airflow_dag.png)
 
-## 8. Como rodar
+## 8. Monitoramento (Prometheus + Grafana)
+
+A API expõe métricas no formato do Prometheus em `GET /metrics`
+([`src/triage/api/metrics.py`](src/triage/api/metrics.py)). Um *middleware* mede toda
+requisição (menos o próprio `/metrics`):
+
+| Métrica | Tipo | O que mede |
+|---|---|---|
+| `http_requests_total{method, endpoint, status}` | Counter | quantidade de requisições, por rota e status |
+| `http_request_duration_seconds{method, endpoint}` | Histogram | latência de cada requisição (permite calcular p50/p95/p99) |
+| `predictions_total{label}` | Counter | quantas predições de cada nível (normal, atenção, urgente) |
+| `model_info{version}` | Gauge | versão do modelo carregado |
+
+O `docker-compose.yml` sobe 3 serviços: a **API**, o **Prometheus** (coleta `/metrics` a
+cada 5 s) e o **Grafana**, que já abre com a fonte de dados e o dashboard configurados
+(*provisioning*, em `monitoring/grafana/`). Nada precisa ser clicado à mão.
+
+```bash
+docker compose up --build -d
+poetry run python scripts/load_test.py --seconds 180   # gera tráfego, com ~10% de erros 422
+```
+
+| Serviço | Endereço |
+|---|---|
+| API | http://localhost:8000/docs |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 (abre direto no dashboard; login admin/admin para editar) |
+
+O dashboard **Triagem - API** tem 9 painéis:
+
+- **Números do momento:** total de requisições, requisições por segundo, latência p95 do `/predict`, taxa de erro e versão do modelo.
+- **Gráficos no tempo:** requisições por segundo (por rota e status), latência p50/p95/p99, taxa de erro (4xx e 5xx) e predições por nível.
+
+![Dashboard do Grafana](docs/images/grafana_dashboard.png)
+
+O painel **predições por nível** também ajuda a perceber *drift*: se a proporção de
+"urgente" mudar muito de uma semana para outra, o perfil dos relatos pode ter mudado e vale
+retreinar o modelo (seção 7).
+
+## 9. Como rodar
 
 Pré-requisitos: Python 3.11, [Poetry](https://python-poetry.org/) e Docker.
 
@@ -209,7 +248,7 @@ O modelo **não** vai dentro da imagem: ele entra por volume (`./models`), o mes
 que o treino gera. Rode o treino antes.
 
 ```bash
-docker compose up --build -d     # constrói a imagem e sobe a API
+docker compose up --build -d     # sobe a API, o Prometheus e o Grafana
 docker compose ps                # deve mostrar "healthy"
 docker compose down              # desliga
 ```
@@ -245,7 +284,7 @@ sequência, numa máquina Linux com 4 vCPUs (Intel Xeon 2,8 GHz). O resultado es
 
 A latência inclui a viagem HTTP de ida e volta, a validação do Pydantic e a predição.
 
-## 9. Estrutura do projeto
+## 10. Estrutura do projeto
 
 ```
 src/triage/
@@ -255,16 +294,17 @@ src/triage/
 ├── model.py         # pipeline TF-IDF + Random Forest
 ├── train.py         # treina, avalia e salva o modelo
 ├── predict.py       # carrega o modelo e aplica a regra de decisão
-└── api/             # FastAPI: main.py (rotas) e schemas.py (Pydantic)
+└── api/             # FastAPI: main.py (rotas), schemas.py (Pydantic) e metrics.py
 dags/                # DAG de retreino do Airflow
+monitoring/          # configuração do Prometheus e do Grafana (dashboard)
 tests/               # pytest + fixtures/sample.csv
-scripts/             # benchmark de latência
+scripts/             # benchmark de latência e teste de carga
 .github/workflows/   # CI: lint → testes → build
 models/              # modelo treinado (fora do git)
 data/raw/            # dataset (fora do git)
 ```
 
-## 10. Limitações
+## 11. Limitações
 
 - Os níveis de urgência vêm de uma regra criada para o projeto, **sem validação clínica**.
 - São só 703 frases únicas, curtas e em inglês.
