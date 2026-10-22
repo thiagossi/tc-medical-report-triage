@@ -1,4 +1,9 @@
-# Sobe a API de triagem.
+# Stack completa: API de triagem + Prometheus (coleta métricas) + Grafana (dashboards).
+#
+#   docker compose up --build -d
+#   API:        http://localhost:8000/docs
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3000  (dashboard "Triagem - API")
 services:
   api:
     build: .
@@ -9,4 +14,34 @@ services:
     volumes:
       # Modelo gerado pelo treino (ou pelo Airflow), só leitura para a API.
       - ./models:/app/models:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    container_name: triage-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    container_name: triage-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # Ambiente local: abre o dashboard sem login (só leitura).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/triage.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
     restart: unless-stopped

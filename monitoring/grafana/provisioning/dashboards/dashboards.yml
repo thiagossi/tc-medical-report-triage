@@ -1,0 +1,9 @@
+# Carrega os dashboards em JSON da pasta /var/lib/grafana/dashboards.
+apiVersion: 1
+providers:
+  - name: triage
+    folder: Triagem
+    type: file
+    disableDeletion: true
+    options:
+      path: /var/lib/grafana/dashboards
