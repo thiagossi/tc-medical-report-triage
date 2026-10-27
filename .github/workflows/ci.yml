@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: poetry
-      - run: poetry install --no-interaction --only main
+      - run: poetry install --no-interaction
 
       - name: Build da imagem Docker
         run: docker build -t tc-triage-api:ci .
@@ -79,22 +79,26 @@ jobs:
           from pathlib import Path
 
           from triage.data import clean_dataset, load_dataset, split_dataset
+          from triage.optimize import export_onnx, unique_texts
           from triage.train import evaluate_model, save_model, train_model
 
           df = clean_dataset(load_dataset("tests/fixtures/sample.csv"))
           train_df, test_df = split_dataset(df)
           model = train_model(train_df)
           save_model(model, evaluate_model(model, test_df), len(train_df), Path("models"))
+          export_onnx(model, unique_texts(df), Path("models"))
           PY
 
+      # A imagem roda com o modelo otimizado (ONNX), como no docker-compose.
       - name: Sobe o container e testa /health e /predict
         run: |
-          docker run -d --name api -p 8000:8000 -v "$PWD/models:/app/models:ro" tc-triage-api:ci
+          docker run -d --name api -p 8000:8000 -e MODEL_BACKEND=onnx \
+            -v "$PWD/models:/app/models:ro" tc-triage-api:ci
           for i in $(seq 1 30); do
             curl -sf http://localhost:8000/health && break
             sleep 1
           done
-          curl -sf http://localhost:8000/health
+          curl -sf http://localhost:8000/health | grep '"backend":"onnx"'
           curl -sf -X POST http://localhost:8000/predict \
             -H "Content-Type: application/json" \
             -d '{"text": "My chest hurts and I cannot breathe"}'

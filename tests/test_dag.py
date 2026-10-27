@@ -17,4 +17,4 @@ def test_dag_loads_with_tasks_in_order():
 
     dag = bag.get_dag("train_pipeline")
     order = [task.task_id for task in dag.topological_sort()]
-    assert order == ["load_data", "validate_data", "train", "evaluate", "save"]
+    assert order == ["load_data", "validate_data", "train", "evaluate", "save", "export"]
