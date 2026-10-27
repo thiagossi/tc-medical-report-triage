@@ -3,4 +3,6 @@
 # e o joblib têm que ser iguais aos do poetry.lock.
 FROM apache/airflow:3.3.2-python3.11
 
-RUN pip install --no-cache-dir "scikit-learn==1.9.1" "joblib==1.6.0"
+# skl2onnx e onnxruntime: a DAG também exporta o modelo otimizado (ONNX).
+RUN pip install --no-cache-dir "scikit-learn==1.9.1" "joblib==1.6.0" \
+    "skl2onnx==1.20.0" "onnx==1.23.2" "onnxruntime==1.31.0"

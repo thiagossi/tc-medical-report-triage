@@ -11,6 +11,10 @@ services:
     container_name: triage-api
     ports:
       - "8000:8000"
+    environment:
+      # onnx (model.onnx, padrão, mais rápido) ou sklearn (model.joblib).
+      # Para comparar: MODEL_BACKEND=sklearn docker compose up -d api
+      MODEL_BACKEND: ${MODEL_BACKEND:-onnx}
     volumes:
       # Modelo gerado pelo treino (ou pelo Airflow), só leitura para a API.
       - ./models:/app/models:ro

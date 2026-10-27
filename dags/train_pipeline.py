@@ -1,6 +1,7 @@
 """DAG de retreino do modelo de triagem.
 
-Fluxo: carregar dados → validar → treinar → avaliar (barreira de qualidade) → salvar.
+Fluxo: carregar dados → validar → treinar → avaliar (barreira de qualidade) → salvar →
+exportar para ONNX (versão otimizada que a API usa).
 
 As tasks só chamam funções de `src/triage/` e passam entre si **caminhos de arquivo**
 (não DataFrames), que ficam em `data/processed/airflow/<run_id>/`. O modelo aprovado
@@ -18,6 +19,7 @@ from airflow.sdk import dag, get_current_context, task
 
 from triage.config import DATA_PATH, MIN_RECALL_URGENTE, PROJECT_ROOT
 from triage.data import clean_dataset, load_dataset, split_dataset, validate_dataset
+from triage.optimize import export_onnx, unique_texts
 from triage.train import evaluate_model, save_model, train_model
 
 WORK_DIR = PROJECT_ROOT / "data" / "processed" / "airflow"
@@ -90,11 +92,19 @@ def train_pipeline():
         model = joblib.load(candidate_path)
         return str(save_model(model, metrics, splits["n_train"]))
 
+    @task
+    def export(model_path: str, dataset_path: str) -> str:
+        """Gera o model.onnx e confere, frase a frase, que responde igual ao sklearn."""
+        model = joblib.load(model_path)
+        texts = unique_texts(pd.read_csv(dataset_path))
+        return str(export_onnx(model, texts, Path(model_path).parent))
+
     dataset = load_data()
     splits = validate_data(dataset)
     candidate = train(splits)
     metrics = evaluate(candidate, splits)
-    save(candidate, metrics, splits)
+    saved = save(candidate, metrics, splits)
+    export(saved, dataset)
 
 
 train_pipeline()

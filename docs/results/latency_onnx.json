@@ -1,0 +1,10 @@
+{
+  "label": "onnx",
+  "measured_at": "2026-10-19T02:49:55.016250+00:00",
+  "url": "http://localhost:8000",
+  "n_requests": 1000,
+  "mean_ms": 2.83,
+  "p50_ms": 2.46,
+  "p95_ms": 4.4,
+  "p99_ms": 7.18
+}

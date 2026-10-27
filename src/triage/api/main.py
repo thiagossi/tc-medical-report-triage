@@ -28,7 +28,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Carrega o modelo uma única vez, quando a API liga."""
     try:
         state["model"], state["metadata"] = load_model()
-        logger.info("Modelo %s carregado de %s", state["metadata"]["version"], MODEL_DIR)
+        logger.info(
+            "Modelo %s (%s) carregado de %s",
+            state["metadata"]["version"],
+            state["metadata"].get("backend"),
+            MODEL_DIR,
+        )
         MODEL_INFO.labels(state["metadata"]["version"]).set(1)
     except FileNotFoundError:
         logger.error("Modelo não encontrado em %s. Rode o treino antes.", MODEL_DIR)
@@ -50,6 +55,7 @@ def health(response: Response) -> dict:
     return {
         "status": "ok" if loaded else "modelo indisponível",
         "model_version": state["metadata"]["version"] if loaded else None,
+        "backend": state["metadata"].get("backend") if loaded else None,
     }
 
 

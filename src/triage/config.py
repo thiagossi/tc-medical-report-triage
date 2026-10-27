@@ -10,6 +10,8 @@ TEST_SIZE = 0.2
 DATA_PATH = Path(os.getenv("DATA_PATH", PROJECT_ROOT / "data/raw/overview-of-recordings.csv"))
 MODEL_DIR = Path(os.getenv("MODEL_DIR", PROJECT_ROOT / "models"))
 MODEL_VERSION = "1.0.0"
+# Qual versão do modelo a API usa: "sklearn" (model.joblib) ou "onnx" (model.onnx)
+MODEL_BACKEND = os.getenv("MODEL_BACKEND", "sklearn")
 
 # TF-IDF
 NGRAM_RANGE = (1, 2)  # palavras: 1 ou 2 palavras juntas
