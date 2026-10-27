@@ -14,6 +14,7 @@ from triage.config import DATA_PATH, MODEL_DIR, MODEL_VERSION, SEED, URGENT_THRE
 from triage.data import clean_dataset, load_dataset, split_dataset, validate_dataset
 from triage.labels import LEVELS
 from triage.model import build_pipeline
+from triage.optimize import export_onnx, unique_texts
 from triage.predict import predict_labels
 
 logger = logging.getLogger(__name__)
@@ -68,3 +69,5 @@ if __name__ == "__main__":
     logger.info("Métricas: %s", metrics)
     model_path = save_model(model, metrics, len(train_df))
     logger.info("Modelo salvo em %s", model_path)
+    # Exporta também a versão ONNX (otimizada), conferida frase a frase com a sklearn.
+    logger.info("Modelo ONNX salvo em %s", export_onnx(model, unique_texts(df)))
